@@ -35,5 +35,7 @@ async def slot(interaction: discord.Interaction, coins: int):
         ephemeral=True
     )
 
-keep_alive()
-bot.run(os.environ["DISCORD_TOKEN"])
+if __name__ == "__main__":
+    keep_alive()  # Flaskを先に起動
+    bot.run(os.environ["DISCORD_TOKEN"])  # そのあとBotを起動（これが止まらない処理）
+
