@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # 追加！
+from flask_cors import CORS  # ← 追加！
 from threading import Thread
 from datetime import datetime, timedelta, timezone
 import uuid
@@ -11,12 +11,10 @@ import os
 # --------------------------
 # Flask サーバーとセッション管理
 # --------------------------
-app = Flask(__name__)
-CORS(app)
-
 SESSION_DATA = {}
 
-app = Flask('')
+app = Flask(__name__)
+CORS(app)  # ← CORS有効化！
 
 @app.route('/')
 def home():
@@ -37,7 +35,7 @@ def get_session():
         "coins": data["coins"]
     })
 
-def run_():
+def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
@@ -69,7 +67,9 @@ async def slot(interaction: discord.Interaction, coins: int):
         "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
     }
 
+    # あなたのRailwayドメインに置き換えてください（デプロイ済のURL）
     slot_url = f"https://slot-production-be36.up.railway.app/?session={session_id}"
+    
     await interaction.response.send_message(
         f"🎰 スロットゲームを開始します！\n[こちらからプレイ](<{slot_url}>)",
         ephemeral=True
@@ -81,5 +81,3 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
-
-
