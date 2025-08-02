@@ -11,8 +11,17 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
+    bot.add_view(JoinView(None))
+    bot.add_view(PokerJoinView(None))
+    
+    # 特定ギルド用
+    await bot.tree.sync(guild=discord.Object(id=1398607685158440991))
+    
+    # グローバルにも同期（/slot など）
     await bot.tree.sync()
+
     print(f"Bot connected as {bot.user}")
+
 
 @bot.tree.command(name="slot", description="スロットゲームを開始します")
 @app_commands.describe(coins="初期コイン数（例：100）")
@@ -33,3 +42,4 @@ async def slot(interaction: discord.Interaction, coins: int):
 
 keep_alive()
 bot.run(os.environ["DISCORD_TOKEN"])
+
