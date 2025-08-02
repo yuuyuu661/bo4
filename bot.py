@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from flask import Flask, request, jsonify
+from flask_cors import CORS  # 追加！
 from threading import Thread
 from datetime import datetime, timedelta, timezone
 import uuid
@@ -77,3 +78,4 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
