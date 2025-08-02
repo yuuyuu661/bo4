@@ -1,17 +1,53 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import uuid
+from flask import Flask, request, jsonify
+from threading import Thread
 from datetime import datetime, timedelta, timezone
-from keep_alive import keep_alive, SESSION_DATA
+import uuid
 import os
 
+# --------------------------
+# Flask サーバーとセッション管理
+# --------------------------
+SESSION_DATA = {}
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I'm alive"
+
+@app.route('/api/session')
+def get_session():
+    session_id = request.args.get("session")
+    if not session_id or session_id not in SESSION_DATA:
+        return jsonify({"error": "Session not found"}), 404
+
+    data = SESSION_DATA[session_id]
+    if data["expires_at"] < datetime.now(timezone.utc):
+        return jsonify({"error": "Session expired"}), 410
+
+    return jsonify({
+        "user_id": data["user_id"],
+        "coins": data["coins"]
+    })
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run_flask)
+    t.start()
+
+# --------------------------
+# Discord Bot の初期化
+# --------------------------
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-    # グローバル登録のみ（またはguild指定に切り替えてもOK）
     await bot.tree.sync()
     print(f"Bot connected as {bot.user}")
 
@@ -29,16 +65,15 @@ async def slot(interaction: discord.Interaction, coins: int):
         "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
     }
 
-    slot_url = f"https://slot-production-be36.up.railway.app/?session={session_id}"  # ← ここを修正
+    slot_url = f"https://slot-production-be36.up.railway.app/?session={session_id}"
     await interaction.response.send_message(
         f"🎰 スロットゲームを開始します！\n[こちらからプレイ](<{slot_url}>)",
         ephemeral=True
     )
 
+# --------------------------
+# 起動
+# --------------------------
 if __name__ == "__main__":
-    keep_alive()  # Flaskを先に起動
-    bot.run(os.environ["DISCORD_TOKEN"])  # そのあとBotを起動（これが止まらない処理）
-
-
-
-
+    keep_alive()
+    bot.run(os.environ["DISCORD_TOKEN"])
