@@ -26,10 +26,10 @@ async def slot(interaction: discord.Interaction, coins: int):
     SESSION_DATA[session_id] = {
         "user_id": interaction.user.id,
         "coins": coins,
-        "expires_at": datetime.utcnow() + timedelta(minutes=10)
+        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
     }
 
-    slot_url = f"https://https://slot-production-be36.up.railway.app//?session={session_id}"
+    slot_url = f"https://slot-production-be36.up.railway.app/?session={session_id}"  # ← ここを修正
     await interaction.response.send_message(
         f"🎰 スロットゲームを開始します！\n[こちらからプレイ](<{slot_url}>)",
         ephemeral=True
@@ -38,5 +38,6 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()  # Flaskを先に起動
     bot.run(os.environ["DISCORD_TOKEN"])  # そのあとBotを起動（これが止まらない処理）
+
 
 
