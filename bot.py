@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS  # ← 追加！
 from threading import Thread
 from datetime import datetime, timedelta, timezone
+from flask import send_from_directory
 import uuid
 import os
 
@@ -15,6 +16,13 @@ SESSION_DATA = {}
 
 app = Flask(__name__)
 CORS(app)  # ← CORS有効化！
+@app.route('/')
+def serve_index():
+    return send_from_directory('public', 'index.html')
+
+@app.route('/<path:path>')
+def serve_file(path):
+    return send_from_directory('public', path)
 
 @app.route('/')
 def home():
@@ -81,3 +89,4 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
