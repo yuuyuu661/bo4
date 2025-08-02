@@ -11,6 +11,9 @@ import os
 # --------------------------
 # Flask サーバーとセッション管理
 # --------------------------
+app = Flask(__name__)
+CORS(app)
+
 SESSION_DATA = {}
 
 app = Flask('')
@@ -34,7 +37,7 @@ def get_session():
         "coins": data["coins"]
     })
 
-def run_flask():
+def run_():
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
@@ -78,4 +81,5 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
