@@ -1,3 +1,4 @@
 discord.py
 flask
-pip install flask-cors
+Flask-Cors
+
