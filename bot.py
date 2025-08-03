@@ -20,7 +20,7 @@ app = Flask(__name__, static_folder='public')
 CORS(app)
 
 @app.route('/')
-def serve_index():
+def serve_index_any_query():
     return send_from_directory('public', 'index.html')
 
 @app.route('/<path:path>')
@@ -111,6 +111,7 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
