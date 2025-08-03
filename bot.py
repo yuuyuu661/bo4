@@ -5,12 +5,15 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from threading import Thread
 from datetime import datetime, timedelta, timezone
-from concurrent.futures import ThreadPoolExecutor 
 import uuid
 import os
 import asyncio
 
+# --------------------------
+# 設定
+# --------------------------
 VIRTUALCRYPTO_ID = 800892182633381950
+CASHOUT_CHANNEL_ID = 1401258844180451489  # /pay を送るチャンネルのID
 
 # --------------------------
 # Flask サーバーとセッション管理
@@ -42,6 +45,7 @@ def get_session():
         "user_id": data["user_id"],
         "coins": data["coins"]
     })
+
 @app.route('/api/cashout', methods=["POST"])
 def cashout():
     data = request.get_json()
@@ -57,9 +61,9 @@ def cashout():
         "timestamp": datetime.now(timezone.utc)
     }
 
-    # ✅ 正しい実行方法
+    # Discordへ送金コマンドを送信（非同期）
     try:
-        future = asyncio.run_coroutine_threadsafe(
+        asyncio.run_coroutine_threadsafe(
             send_payout(user_id, coins),
             bot.loop
         )
@@ -68,10 +72,11 @@ def cashout():
         return jsonify({"error": "Failed to send payout"}), 500
 
     return jsonify({"status": "ok"})
-    def run_flask():
+
+def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-    def keep_alive():
+def keep_alive():
     t = Thread(target=run_flask)
     t.start()
 
@@ -89,7 +94,7 @@ async def on_ready():
     print(f"Bot connected as {bot.user}")
 
 # --------------------------
-# /slot コマンド（送金確認付き）
+# /slot コマンド
 # --------------------------
 @bot.tree.command(name="slot", description="スロットゲームを開始します")
 @app_commands.describe(coins="初期コイン数（例：1000）")
@@ -99,8 +104,8 @@ async def slot(interaction: discord.Interaction, coins: int):
         return
 
     await interaction.response.send_message(
-        f"💰 まず `{coins}Spt` を VirtualCrypto Bot 経由で「ベル」宛に送金してください。\n"
-        f"制限時間：**3分以内**に送金が確認されるとスロットURLを配布します。",
+        f"💰 `{coins}Spt` を VirtualCrypto 経由で「ベル」宛に送金してください。\n"
+        f"制限時間：**3分以内**に送金が確認されるとスロットURLを発行します。",
         ephemeral=True
     )
 
@@ -108,11 +113,12 @@ async def slot(interaction: discord.Interaction, coins: int):
         description = msg.embeds[0].description if msg.embeds else ""
         print("受信（embed）:", repr(description))
         return (
-        msg.author.id == VIRTUALCRYPTO_ID and
-        f"<@{interaction.user.id}>から<@{bot.user.id}>へ" in description and
-        f"{coins}" in description and
-        "Spt" in description
-    )
+            msg.author.id == VIRTUALCRYPTO_ID and
+            f"<@{interaction.user.id}>から<@{bot.user.id}>へ" in description and
+            f"{coins}" in description and
+            "Spt" in description
+        )
+
     try:
         msg = await bot.wait_for("message", timeout=180, check=check)
 
@@ -128,50 +134,31 @@ async def slot(interaction: discord.Interaction, coins: int):
             f"✅ 送金を確認しました！\n🎰 スロットはこちらからどうぞ:\n<{slot_url}>",
             ephemeral=True
         )
+
     except asyncio.TimeoutError:
         await interaction.followup.send("⏳ 時間内に送金が確認できませんでした。再度 `/slot` を実行してください。", ephemeral=True)
 
-CASHOUT_CHANNEL_ID = 1401258844180451489  # /pay を送るチャンネルのID
-
+# --------------------------
+# 送金処理
+# --------------------------
 async def send_payout(user_id: int, coins: int):
     try:
-        # ユーザー情報取得
         user = await bot.fetch_user(user_id)
-        
-        # チャンネル取得
         cashout_channel = bot.get_channel(CASHOUT_CHANNEL_ID)
+
         if not cashout_channel:
             print("送金チャンネルが見つかりません")
             return
 
-        # /pay コマンド送信
         await cashout_channel.send(f"/pay {user.mention} {coins} spt")
-        print(f"送金コマンドを送信: /pay {user.mention} {coins} spt")
+        print(f"✅ 送金コマンドを送信: /pay {user.mention} {coins} spt")
 
     except Exception as e:
-        print("送金失敗:", e)
+        print("❌ 送金失敗:", e)
 
-    # VirtualCrypto向けの /pay コマンドを送信
-    await cashout_channel.send(f"/pay {user.mention} {coins}")
 # --------------------------
 # 起動
 # --------------------------
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
