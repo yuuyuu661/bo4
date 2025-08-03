@@ -79,11 +79,13 @@ async def slot(interaction: discord.Interaction, coins: int):
     )
 
     def check(msg: discord.Message):
+        print("受信:", msg.content)  # ← ログ出力（必要に応じて削除）
         return (
-            msg.author.id == VIRTUALCRYPTO_ID and
-            f"<@{interaction.user.id}>から<@{bot.user.id}>へ" in msg.content and
-            f"{coins}Spt" in msg.content
-        )
+        msg.author.id == VIRTUALCRYPTO_ID and
+        f"<@{interaction.user.id}>から<@{bot.user.id}>へ" in msg.content and
+        f"{coins}" in msg.content and
+        "Spt送金されました" in msg.content
+    )
 
     try:
         msg = await bot.wait_for("message", timeout=180, check=check)
@@ -109,3 +111,4 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
