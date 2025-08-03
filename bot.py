@@ -41,6 +41,21 @@ def get_session():
         "user_id": data["user_id"],
         "coins": data["coins"]
     })
+@app.route('/api/cashout', methods=["POST"])
+def cashout():
+    data = request.get_json()
+    session_id = data.get("session")
+    coins = data.get("coins")
+
+    if not session_id or session_id not in SESSION_DATA:
+        return jsonify({"error": "Invalid session"}), 400
+
+    SESSION_DATA[session_id]["cashout"] = {
+        "coins": coins,
+        "timestamp": datetime.now(timezone.utc)
+    }
+
+    return jsonify({"status": "ok"})
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
@@ -111,6 +126,7 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
