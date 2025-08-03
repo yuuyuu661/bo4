@@ -150,7 +150,7 @@ async def send_payout(user_id: int, coins: int):
             print("❌ 送金チャンネルが見つかりません")
             return
 
-        await cashout_channel.send(f"/pay {user.mention} {coins} spt")
+        await cashout_channel.send(f"/pay Spt {user.mention} {coins}")
         print(f"✅ /pay {user.mention} {coins} spt を送信しました")
 
     except Exception as e:
@@ -162,3 +162,4 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
