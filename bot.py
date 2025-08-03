@@ -1,13 +1,13 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from flask import Flask, request, jsonify
-from flask_cors import CORS  # ← 追加！
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from threading import Thread
 from datetime import datetime, timedelta, timezone
-from flask import send_from_directory
 import uuid
 import os
+import asyncio
 
 # --------------------------
 # Flask サーバーとセッション管理
@@ -15,7 +15,8 @@ import os
 SESSION_DATA = {}
 
 app = Flask(__name__)
-CORS(app)  # ← CORS有効化！
+CORS(app)
+
 @app.route('/')
 def serve_index():
     return send_from_directory('public', 'index.html')
@@ -23,10 +24,6 @@ def serve_index():
 @app.route('/<path:path>')
 def serve_file(path):
     return send_from_directory('public', path)
-
-@app.route('/')
-def home():
-    return "I'm alive"
 
 @app.route('/api/session')
 def get_session():
@@ -51,9 +48,11 @@ def keep_alive():
     t.start()
 
 # --------------------------
-# Discord Bot の初期化
+# Discord Bot 初期化
 # --------------------------
 intents = discord.Intents.default()
+intents.message_content = True  # 必要！
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
@@ -61,27 +60,46 @@ async def on_ready():
     await bot.tree.sync()
     print(f"Bot connected as {bot.user}")
 
+# --------------------------
+# /slot コマンド（送金確認付き）
+# --------------------------
 @bot.tree.command(name="slot", description="スロットゲームを開始します")
-@app_commands.describe(coins="初期コイン数（例：100）")
+@app_commands.describe(coins="初期コイン数（例：1000）")
 async def slot(interaction: discord.Interaction, coins: int):
     if coins <= 0:
         await interaction.response.send_message("コイン数は1以上にしてください。", ephemeral=True)
         return
 
-    session_id = str(uuid.uuid4())
-    SESSION_DATA[session_id] = {
-        "user_id": interaction.user.id,
-        "coins": coins,
-        "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
-    }
-
-    # あなたのRailwayドメインに置き換えてください（デプロイ済のURL）
-    slot_url = f"https://slot-production-be36.up.railway.app/?session={session_id}"
-    
     await interaction.response.send_message(
-        f"🎰 スロットゲームを開始します！\n[こちらからプレイ](<{slot_url}>)",
+        f"💰 まず `{coins}Spt` を VirtualCrypto Bot 経由で「ベル」宛に送金してください。\n"
+        f"制限時間：**3分以内**に送金が確認されるとスロットURLを配布します。",
         ephemeral=True
     )
+
+    def check(msg: discord.Message):
+        return (
+            msg.author.name == "VirtualCrypto" and
+            f"{interaction.user.display_name}からベルへ" in msg.content and
+            f"{coins}Spt" in msg.content
+        )
+
+    try:
+        msg = await bot.wait_for("message", timeout=180, check=check)
+
+        session_id = str(uuid.uuid4())
+        SESSION_DATA[session_id] = {
+            "user_id": interaction.user.id,
+            "coins": coins,
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
+        }
+
+        slot_url = f"https://bo4-production.up.railway.app/?session={session_id}"
+        await interaction.followup.send(
+            f"✅ 送金を確認しました！\n🎰 スロットはこちらからどうぞ:\n<{slot_url}>",
+            ephemeral=True
+        )
+    except asyncio.TimeoutError:
+        await interaction.followup.send("⏳ 時間内に送金が確認できませんでした。再度 `/slot` を実行してください。", ephemeral=True)
 
 # --------------------------
 # 起動
@@ -89,4 +107,3 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
-
