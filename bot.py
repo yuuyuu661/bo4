@@ -80,7 +80,7 @@ async def slot(interaction: discord.Interaction, coins: int):
     def check(msg: discord.Message):
      return (
         msg.author.id == VIRTUALCRYPTO_ID and
-        f"{interaction.user.display_name}からベルへ" in msg.content and
+        f"<@{interaction.user.id}>から<@{bot.user.id}>へ" in msg.content and
         f"{coins}Spt" in msg.content
     )
 
@@ -108,5 +108,6 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
