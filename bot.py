@@ -97,7 +97,7 @@ async def slot(interaction: discord.Interaction, coins: int):
             "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
         }
 
-        slot_url = f"https://bo4-production.up.railway.app/?session={session_id}"
+        slot_url = f"https://slot-production-be36.up.railway.app/?session={session_id}"
         await interaction.followup.send(
             f"✅ 送金を確認しました！\n🎰 スロットはこちらからどうぞ:\n<{slot_url}>",
             ephemeral=True
@@ -111,6 +111,7 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
