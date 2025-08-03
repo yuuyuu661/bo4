@@ -56,12 +56,12 @@ def cashout():
         "timestamp": datetime.now(timezone.utc)
     }
 
-    # Discordへ送金コマンドを送信（非同期）
+    # Discordへ送金コマンドを送信（同期で検証）
     try:
-    asyncio.run(send_payout(user_id, coins))
-except Exception as e:
-    print("清算エラー:", e)
-    return jsonify({"error": "Failed to send payout"}), 500
+        asyncio.run(send_payout(user_id, coins))
+    except Exception as e:
+        print("清算エラー:", e)
+        return jsonify({"error": "Failed to send payout"}), 500
 
     return jsonify({"status": "ok"})
 
@@ -156,6 +156,7 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
