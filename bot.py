@@ -136,7 +136,7 @@ async def slot(interaction: discord.Interaction, coins: int):
         SESSION_DATA[session_id] = {
             "user_id": interaction.user.id,
             "coins": coins,
-            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
             "used": False  # ← 追加：初期状態は未使用
         }
 
@@ -173,6 +173,7 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
