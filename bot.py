@@ -149,13 +149,13 @@ async def send_payout(user_id: int, coins: int):
 
     # VirtualCrypto向けの /pay コマンドを送信
     await cashout_channel.send(f"/pay {user.mention} {coins}")
-    data["paid"] = True  # 送金済みマーク
 # --------------------------
 # 起動
 # --------------------------
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
