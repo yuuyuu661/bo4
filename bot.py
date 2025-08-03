@@ -142,12 +142,19 @@ async def slot(interaction: discord.Interaction, coins: int):
 # 送金処理
 # --------------------------
 async def send_payout(user_id: int, coins: int):
+    await bot.wait_until_ready()  # ← 追加：Bot準備完了を待つ
+
     try:
         user = await bot.fetch_user(user_id)
-        cashout_channel = bot.get_channel(CASHOUT_CHANNEL_ID)
 
+        guild = discord.utils.get(bot.guilds)  # 1個目のGuildを取得（必要に応じて修正）
+        if guild is None:
+            print("❌ ギルドが見つかりません")
+            return
+
+        cashout_channel = guild.get_channel(CASHOUT_CHANNEL_ID) or bot.get_channel(CASHOUT_CHANNEL_ID)
         if not cashout_channel:
-            print("送金チャンネルが見つかりません")
+            print("❌ 送金チャンネルが見つかりません")
             return
 
         await cashout_channel.send(f"/pay {user.mention} {coins} spt")
@@ -162,3 +169,4 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
