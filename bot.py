@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from threading import Thread
 from datetime import datetime, timedelta, timezone
+from concurrent.futures import ThreadPoolExecutor 
 import uuid
 import os
 import asyncio
@@ -47,8 +48,6 @@ def cashout():
     session_id = data.get("session")
     coins = data.get("coins")
 
-    print("💬 /api/cashout 呼び出し:", session_id, coins)  # ← 追加
-
     if not session_id or session_id not in SESSION_DATA:
         return jsonify({"error": "Invalid session"}), 400
 
@@ -58,10 +57,14 @@ def cashout():
         "timestamp": datetime.now(timezone.utc)
     }
 
+    # ✅ 正しい実行方法
     try:
-        asyncio.run(send_payout(user_id, coins))
+        future = asyncio.run_coroutine_threadsafe(
+            send_payout(user_id, coins),
+            bot.loop
+        )
     except Exception as e:
-        print("送金エラー:", e)
+        print("清算エラー:", e)
         return jsonify({"error": "Failed to send payout"}), 500
 
     return jsonify({"status": "ok"})
@@ -150,6 +153,7 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
