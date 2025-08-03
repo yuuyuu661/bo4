@@ -127,6 +127,7 @@ async def slot(interaction: discord.Interaction, coins: int):
             "user_id": interaction.user.id,
             "coins": coins,
             "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
+            "used": False  # ←追加
         }
 
         slot_url = f"https://slot-production-be36.up.railway.app/?session={session_id}"
@@ -162,4 +163,5 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
