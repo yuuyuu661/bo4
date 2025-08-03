@@ -13,7 +13,7 @@ import asyncio
 # 設定
 # --------------------------
 VIRTUALCRYPTO_ID = 800892182633381950
-CASHOUT_CHANNEL_ID = 1401258844180451489  # /pay を送るチャンネルのID
+CASHOUT_CHANNEL_ID = 1401258844180451489  # 送金チャンネルID
 
 # --------------------------
 # Flask サーバーとセッション管理
@@ -61,15 +61,15 @@ def cashout():
         "timestamp": datetime.now(timezone.utc)
     }
 
-    print(f"清算要求: user={user_id}, coins={coins}")
-
+    print(f"[INFO] 清算要求: user={user_id}, coins={coins}")
     try:
-        bot.loop.call_soon_threadsafe(
-            asyncio.create_task,
-            send_payout(user_id, coins)
+        # 非同期送金処理を bot.loop に投げる
+        asyncio.run_coroutine_threadsafe(
+            send_payout(user_id, coins),
+            bot.loop
         )
     except Exception as e:
-        print("清算エラー:", e)
+        print("❌ 清算エラー:", e)
         return jsonify({"error": "Failed to send payout"}), 500
 
     return jsonify({"status": "ok"})
@@ -92,7 +92,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     await bot.tree.sync()
-    print(f"Bot connected as {bot.user}")
+    print(f"✅ Bot connected as {bot.user}")
 
 # --------------------------
 # /slot コマンド
@@ -112,7 +112,6 @@ async def slot(interaction: discord.Interaction, coins: int):
 
     def check(msg: discord.Message):
         description = msg.embeds[0].description if msg.embeds else ""
-        print("受信（embed）:", repr(description))
         return (
             msg.author.id == VIRTUALCRYPTO_ID and
             f"<@{interaction.user.id}>から<@{bot.user.id}>へ" in description and
@@ -140,26 +139,19 @@ async def slot(interaction: discord.Interaction, coins: int):
         await interaction.followup.send("⏳ 時間内に送金が確認できませんでした。再度 `/slot` を実行してください。", ephemeral=True)
 
 # --------------------------
-# 送金処理
+# 送金処理関数
 # --------------------------
 async def send_payout(user_id: int, coins: int):
-    await bot.wait_until_ready()  # ← 追加：Bot準備完了を待つ
-
+    await bot.wait_until_ready()
     try:
         user = await bot.fetch_user(user_id)
-
-        guild = discord.utils.get(bot.guilds)  # 1個目のGuildを取得（必要に応じて修正）
-        if guild is None:
-            print("❌ ギルドが見つかりません")
-            return
-
-        cashout_channel = guild.get_channel(CASHOUT_CHANNEL_ID) or bot.get_channel(CASHOUT_CHANNEL_ID)
+        cashout_channel = bot.get_channel(CASHOUT_CHANNEL_ID)
         if not cashout_channel:
             print("❌ 送金チャンネルが見つかりません")
             return
 
         await cashout_channel.send(f"/pay {user.mention} {coins} spt")
-        print(f"✅ 送金コマンドを送信: /pay {user.mention} {coins} spt")
+        print(f"✅ /pay {user.mention} {coins} spt を送信しました")
 
     except Exception as e:
         print("❌ 送金失敗:", e)
@@ -170,8 +162,3 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
-
-
-
-
-
