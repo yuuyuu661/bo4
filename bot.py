@@ -68,6 +68,12 @@ def cashout():
         return jsonify({"error": "Failed to send payout"}), 500
 
     return jsonify({"status": "ok"})
+    def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+    def keep_alive():
+    t = Thread(target=run_flask)
+    t.start()
 
 # --------------------------
 # Discord Bot 初期化
@@ -153,6 +159,7 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
