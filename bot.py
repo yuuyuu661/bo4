@@ -50,26 +50,13 @@ def cashout():
     if not session_id or session_id not in SESSION_DATA:
         return jsonify({"error": "Invalid session"}), 400
 
-    SESSION_DATA[session_id]["cashout"] = {
-        "coins": coins,
-        "timestamp": datetime.now(timezone.utc)
-    }
-@app.route('/api/cashout', methods=["POST"])
-def cashout():
-    data = request.get_json()
-    session_id = data.get("session")
-    coins = data.get("coins")
-
-    if not session_id or session_id not in SESSION_DATA:
-        return jsonify({"error": "Invalid session"}), 400
-
     user_id = SESSION_DATA[session_id]["user_id"]
     SESSION_DATA[session_id]["cashout"] = {
         "coins": coins,
         "timestamp": datetime.now(timezone.utc)
     }
 
-    # Discordへ送金コマンドを送信（非同期実行）
+    # Discordへ送金コマンドを送信（非同期）
     asyncio.run_coroutine_threadsafe(
         send_payout(user_id, coins),
         bot.loop
@@ -143,13 +130,20 @@ async def slot(interaction: discord.Interaction, coins: int):
 CASHOUT_CHANNEL_ID = 1401258844180451489  # /pay を送るチャンネルのID
 
 async def send_payout(user_id: int, coins: int):
-    channel = discord.utils.get(bot.get_all_channels(), name="送金ログ")  # またはID指定でも可
-    if not channel:
-        print("送金チャンネルが見つかりません")
-        return
     try:
-        await channel.send(f"/pay <@{user_id}> {coins} spt")
-        print(f"送金コマンドを送信: /pay <@{user_id}> {coins} spt")
+        # ユーザー情報取得
+        user = await bot.fetch_user(user_id)
+        
+        # チャンネル取得
+        cashout_channel = bot.get_channel(CASHOUT_CHANNEL_ID)
+        if not cashout_channel:
+            print("送金チャンネルが見つかりません")
+            return
+
+        # /pay コマンド送信
+        await cashout_channel.send(f"/pay {user.mention} {coins} spt")
+        print(f"送金コマンドを送信: /pay {user.mention} {coins} spt")
+
     except Exception as e:
         print("送金失敗:", e)
 
@@ -162,6 +156,7 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
