@@ -64,9 +64,9 @@ def cashout():
     print(f"清算要求: user={user_id}, coins={coins}")
 
     try:
-        asyncio.run_coroutine_threadsafe(
-            send_payout(user_id, coins),
-            bot.loop
+        bot.loop.call_soon_threadsafe(
+            asyncio.create_task,
+            send_payout(user_id, coins)
         )
     except Exception as e:
         print("清算エラー:", e)
@@ -170,6 +170,7 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
