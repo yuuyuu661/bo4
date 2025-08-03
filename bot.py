@@ -120,12 +120,29 @@ async def slot(interaction: discord.Interaction, coins: int):
     except asyncio.TimeoutError:
         await interaction.followup.send("⏳ 時間内に送金が確認できませんでした。再度 `/slot` を実行してください。", ephemeral=True)
 
+CASHOUT_CHANNEL_ID = 1401258844180451489  # /pay を送るチャンネルのID
+
+async def send_payout(user_id: int, coins: int):
+    channel = discord.utils.get(bot.get_all_channels(), name="送金ログ")  # またはID指定でも可
+    if not channel:
+        print("送金チャンネルが見つかりません")
+        return
+    try:
+        await channel.send(f"/pay <@{user_id}> {coins} spt")
+        print(f"送金コマンドを送信: /pay <@{user_id}> {coins} spt")
+    except Exception as e:
+        print("送金失敗:", e)
+
+    # VirtualCrypto向けの /pay コマンドを送信
+    await cashout_channel.send(f"/pay {user.mention} {coins}")
+    data["paid"] = True  # 送金済みマーク
 # --------------------------
 # 起動
 # --------------------------
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
