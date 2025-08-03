@@ -47,6 +47,8 @@ def cashout():
     session_id = data.get("session")
     coins = data.get("coins")
 
+    print("💬 /api/cashout 呼び出し:", session_id, coins)  # ← 追加
+
     if not session_id or session_id not in SESSION_DATA:
         return jsonify({"error": "Invalid session"}), 400
 
@@ -56,21 +58,13 @@ def cashout():
         "timestamp": datetime.now(timezone.utc)
     }
 
-    # Discordへ送金コマンドを送信（同期で検証）
     try:
         asyncio.run(send_payout(user_id, coins))
     except Exception as e:
-        print("清算エラー:", e)
+        print("送金エラー:", e)
         return jsonify({"error": "Failed to send payout"}), 500
 
     return jsonify({"status": "ok"})
-
-def run_flask():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run_flask)
-    t.start()
 
 # --------------------------
 # Discord Bot 初期化
@@ -156,6 +150,7 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
