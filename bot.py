@@ -41,9 +41,19 @@ def get_session():
     if data["expires_at"] < datetime.now(timezone.utc):
         return jsonify({"error": "Session expired"}), 410
 
+    if data.get("used", False):
+        return jsonify({
+            "user_id": data["user_id"],
+            "coins": 0,
+            "used": True
+        })
+
+    # 初回アクセス：コイン返して使用済みにする
+    data["used"] = True
     return jsonify({
         "user_id": data["user_id"],
-        "coins": data["coins"]
+        "coins": data["coins"],
+        "used": False
     })
 
 @app.route('/api/cashout', methods=["POST"])
@@ -127,6 +137,7 @@ async def slot(interaction: discord.Interaction, coins: int):
             "user_id": interaction.user.id,
             "coins": coins,
             "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
+            "used": False  # ← 追加：初期状態は未使用
         }
 
         slot_url = f"https://slot-production-be36.up.railway.app/?session={session_id}"
@@ -162,6 +173,7 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
