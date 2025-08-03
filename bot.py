@@ -83,9 +83,9 @@ async def slot(interaction: discord.Interaction, coins: int):
         print("受信（embed）:", repr(description))
         return (
         msg.author.id == VIRTUALCRYPTO_ID and
-        f"@{interaction.user.display_name}から@{bot.user.display_name}へ" in description and
+        f"<@{interaction.user.id}>から<@{bot.user.id}>へ" in description and
         f"{coins}" in description and
-        "Spt送金されました" in description
+        "Spt" in description
     )
     try:
         msg = await bot.wait_for("message", timeout=180, check=check)
@@ -111,6 +111,7 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
 
 
