@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import uuid
 import os
 import asyncio
+VIRTUALCRYPTO_ID = 800892182633381950
 
 # --------------------------
 # Flask サーバーとセッション管理
@@ -77,11 +78,11 @@ async def slot(interaction: discord.Interaction, coins: int):
     )
 
     def check(msg: discord.Message):
-        return (
-            msg.author.name == "VirtualCrypto" and
-            f"{interaction.user.display_name}からベルへ" in msg.content and
-            f"{coins}Spt" in msg.content
-        )
+    return (
+        msg.author.id == VIRTUALCRYPTO_ID and
+        f"{interaction.user.display_name}からベルへ" in msg.content and
+        f"{coins}Spt" in msg.content
+    )
 
     try:
         msg = await bot.wait_for("message", timeout=180, check=check)
@@ -107,3 +108,4 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
