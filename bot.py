@@ -13,7 +13,7 @@ import asyncio
 # 設定
 # --------------------------
 VIRTUALCRYPTO_ID = 800892182633381950
-CASHOUT_CHANNEL_ID = 1401258844180451489  # 送金チャンネルID
+CASHOUT_CHANNEL_ID = 1401466622149005493  # 送金チャンネルID
 
 # --------------------------
 # Flask サーバーとセッション管理
@@ -150,7 +150,7 @@ async def send_payout(user_id: int, coins: int):
             print("❌ 送金チャンネルが見つかりません")
             return
 
-        await cashout_channel.send(f"/pay Spt {user.mention} {coins}")
+        await cashout_channel.send(f"/pay Spt {user.mention} {coins}　清算処理")
         print(f"✅ /pay {user.mention} {coins} spt を送信しました")
 
     except Exception as e:
@@ -162,4 +162,5 @@ async def send_payout(user_id: int, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
+
 
