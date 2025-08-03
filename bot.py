@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import uuid
 import os
 import asyncio
+
 VIRTUALCRYPTO_ID = 800892182633381950
 
 # --------------------------
@@ -15,7 +16,7 @@ VIRTUALCRYPTO_ID = 800892182633381950
 # --------------------------
 SESSION_DATA = {}
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='public')
 CORS(app)
 
 @app.route('/')
@@ -52,7 +53,7 @@ def keep_alive():
 # Discord Bot 初期化
 # --------------------------
 intents = discord.Intents.default()
-intents.message_content = True  # 必要！
+intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -78,11 +79,11 @@ async def slot(interaction: discord.Interaction, coins: int):
     )
 
     def check(msg: discord.Message):
-     return (
-        msg.author.id == VIRTUALCRYPTO_ID and
-        f"<@{interaction.user.id}>から<@{bot.user.id}>へ" in msg.content and
-        f"{coins}Spt" in msg.content
-    )
+        return (
+            msg.author.id == VIRTUALCRYPTO_ID and
+            f"<@{interaction.user.id}>から<@{bot.user.id}>へ" in msg.content and
+            f"{coins}Spt" in msg.content
+        )
 
     try:
         msg = await bot.wait_for("message", timeout=180, check=check)
@@ -108,6 +109,3 @@ async def slot(interaction: discord.Interaction, coins: int):
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
-
-
-
