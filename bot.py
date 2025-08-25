@@ -13,26 +13,27 @@ import logging
 from typing import Optional, Dict, Any, List
 
 # =========================================================
-# 設定（既存：スロット）
+# 既存：スロット設定
 # =========================================================
 VIRTUALCRYPTO_ID = 800892182633381950
 CASHOUT_CHANNEL_ID = 1401466622149005493  # 送金チャンネルID
 
 # =========================================================
-# 追加設定（VCガード）
+# 追加：VCガード設定
 # =========================================================
-# コマンド即時反映したいギルド（必要に応じて複数可）
-GUILD_IDS = [1398607685158440991]
-# コマンド実行を許可するロール（管理者は常にOK）
-ALLOWED_ROLE_ID = 1398724601256874014
-# 保護ロールの初期値（起動後にコマンドで上書き推奨）
-DEFAULT_PROTECTED_ROLE_ID = 111111111111111111  # ←必要なら初期値差し替え
-# 設定ファイル
+GUILD_IDS = [1398607685158440991]        # ← 即同期したいサーバーID（複数可）
+ALLOWED_ROLE_ID = 1398724601256874014    # 設定コマンドを使えるロール（管理者は常にOK）
+DEFAULT_PROTECTED_ROLE_ID = 111111111111111111  # 初期値（起動後にコマンドで変更推奨）
 CONFIG_PATH = "config.json"
 
 # =========================================================
 # ログ
 # =========================================================
+# （重複出力が気になる場合は既存ハンドラをクリア）
+root = logging.getLogger()
+for h in list(root.handlers):
+    root.removeHandler(h)
+
 logging.basicConfig(
     level=logging.INFO,
     format="(%(asctime)s) [%(levelname)s] %(name)s: %(message)s",
@@ -40,7 +41,7 @@ logging.basicConfig(
 log = logging.getLogger("slot_vc_guard")
 
 # =========================================================
-# Flask サーバーとセッション管理（既存：スロット）
+# Flask サーバーとセッション管理（スロット）
 # =========================================================
 SESSION_DATA: Dict[str, Dict[str, Any]] = {}
 
@@ -112,7 +113,7 @@ def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
-    t = Thread(target=run_flask)
+    t = Thread(target=run_flask, daemon=True)
     t.start()
 
 # =========================================================
@@ -152,7 +153,7 @@ CONFIG = load_config()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True   # VCイベントに必須
-intents.members = True        # ロール/メンバー情報に必須
+intents.members = True        # ロール判定に必須（開発者ポータルでON）
 intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -174,25 +175,7 @@ async def ensure_access(interaction: discord.Interaction) -> bool:
     return True
 
 # =========================================================
-# 既存：起動時
-# =========================================================
-@bot.event
-async def on_ready():
-    # ギルド限定同期（即反映）
-    for gid in GUILD_IDS:
-        try:
-            await tree.sync(guild=discord.Object(id=gid))
-            log.info(f"Slash commands synced to Guild {gid}")
-        except Exception as e:
-            log.warning(f"Failed to sync to Guild {gid}: {e}")
-
-    # グローバル同期（必要なら）
-    # await tree.sync()
-
-    print(f"✅ Bot connected as {bot.user}")
-
-# =========================================================
-# 既存：/slot コマンド
+# 既存：/slot コマンド（そのまま）
 # =========================================================
 @bot.tree.command(name="slot", description="スロットゲームを開始します")
 @app_commands.describe(coins="初期コイン数（例：1000）")
@@ -310,10 +293,10 @@ async def enforce_on_protected_enter(channel: Optional[discord.VoiceChannel | di
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
     # 参加/移動時のみチェック
     if after.channel and after.channel != before.channel:
-        # 1) 対象ユーザー（B）が入った/移動してきた → 機能1適用
+        # 1) 対象ユーザー（B）が入った/移動 → 機能1
         if is_target_user(member.id):
             await enforce_on_join(member, after.channel)
-        # 2) 保護対象（A）が入った/移動してきた → 機能2適用
+        # 2) Aが入った/移動 → 機能2
         if is_protected(member):
             await enforce_on_protected_enter(after.channel)
 
@@ -366,7 +349,7 @@ async def target_add(interaction: discord.Interaction, user: discord.Member, f1:
         ephemeral=True
     )
 
-@target_group.command(name="set", description="対象ユーザーの機能ON/OFFを更新（未指定の項目は変更しない）")
+@target_group.command(name="set", description="対象ユーザーの機能ON/OFFを更新（未指定は変更しない）")
 @app_commands.describe(user="対象ユーザー", f1="機能1の新設定（true/false/未指定）", f2="機能2の新設定（true/false/未指定）")
 async def target_set(interaction: discord.Interaction, user: discord.Member, f1: Optional[bool] = None, f2: Optional[bool] = None):
     if not await ensure_access(interaction):
@@ -437,6 +420,23 @@ async def target_list(interaction: discord.Interaction, page: Optional[int] = 1)
         f"対象ユーザー一覧（{start+1}-{end}/{total}）\n" + "\n".join(lines),
         ephemeral=True
     )
+
+# =========================================================
+# 同期ポイント（ここが肝）— すべてのコマンド定義後！
+# =========================================================
+@bot.event
+async def setup_hook():
+    # 全コマンド登録が終わってからギルド同期するので、初回から確実に出る
+    for gid in GUILD_IDS:
+        try:
+            await tree.sync(guild=discord.Object(id=gid))
+            log.info(f"Slash commands synced to Guild {gid}")
+        except Exception as e:
+            log.warning(f"Failed to sync to Guild {gid}: {e}")
+
+@bot.event
+async def on_ready():
+    print(f"✅ Bot connected as {bot.user}")
 
 # =========================================================
 # 起動
