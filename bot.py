@@ -12,37 +12,32 @@ import json
 import logging
 from typing import Optional, Dict, Any, List
 
-# =========================================================
-# 既存：スロット設定
-# =========================================================
+# =========================
+# スロット設定（既存）
+# =========================
 VIRTUALCRYPTO_ID = 800892182633381950
 CASHOUT_CHANNEL_ID = 1401466622149005493  # 送金チャンネルID
 
-# =========================================================
-# 追加：VCガード設定
-# =========================================================
-GUILD_IDS = [1398607685158440991]        # ← 即同期したいサーバーID（複数可）
+# =========================
+# VCガード設定
+# =========================
+GUILD_IDS = [1398607685158440991]        # ← 即同期したいサーバーID
 ALLOWED_ROLE_ID = 1398724601256874014    # 設定コマンドを使えるロール（管理者は常にOK）
 DEFAULT_PROTECTED_ROLE_ID = 111111111111111111  # 初期値（起動後にコマンドで変更推奨）
 CONFIG_PATH = "config.json"
 
-# =========================================================
+# =========================
 # ログ
-# =========================================================
-# （重複出力が気になる場合は既存ハンドラをクリア）
-root = logging.getLogger()
-for h in list(root.handlers):
-    root.removeHandler(h)
-
+# =========================
 logging.basicConfig(
     level=logging.INFO,
     format="(%(asctime)s) [%(levelname)s] %(name)s: %(message)s",
 )
 log = logging.getLogger("slot_vc_guard")
 
-# =========================================================
-# Flask サーバーとセッション管理（スロット）
-# =========================================================
+# =========================
+# Flask（既存）
+# =========================
 SESSION_DATA: Dict[str, Dict[str, Any]] = {}
 
 app = Flask(__name__, static_folder='public')
@@ -67,19 +62,10 @@ def get_session():
         return jsonify({"error": "Session expired"}), 410
 
     if data.get("used", False):
-        return jsonify({
-            "user_id": data["user_id"],
-            "coins": 0,
-            "used": True
-        })
+        return jsonify({"user_id": data["user_id"], "coins": 0, "used": True})
 
-    # 初回アクセス：コイン返して使用済みにする
     data["used"] = True
-    return jsonify({
-        "user_id": data["user_id"],
-        "coins": data["coins"],
-        "used": False
-    })
+    return jsonify({"user_id": data["user_id"], "coins": data["coins"], "used": False})
 
 @app.route('/api/cashout', methods=["POST"])
 def cashout():
@@ -98,7 +84,6 @@ def cashout():
 
     print(f"[INFO] 清算要求: user={user_id}, coins={coins}")
     try:
-        # 非同期送金処理を bot.loop に投げる
         asyncio.run_coroutine_threadsafe(
             send_payout(user_id, coins),
             bot.loop
@@ -116,9 +101,9 @@ def keep_alive():
     t = Thread(target=run_flask, daemon=True)
     t.start()
 
-# =========================================================
+# =========================
 # 設定ロード/保存（VCガード）
-# =========================================================
+# =========================
 def load_config() -> Dict[str, Any]:
     data: Dict[str, Any] = {}
     if os.path.exists(CONFIG_PATH):
@@ -132,8 +117,7 @@ def load_config() -> Dict[str, Any]:
     if "protected_role_id" not in data:
         data["protected_role_id"] = DEFAULT_PROTECTED_ROLE_ID
         changed = True
-    # targets: { user_id(str): {"f1": bool, "f2": bool} }
-    if "targets" not in data:
+    if "targets" not in data:  # { user_id(str): {"f1": bool, "f2": bool} }
         data["targets"] = {}
         changed = True
 
@@ -147,36 +131,31 @@ def save_config(data: Dict[str, Any]) -> None:
 
 CONFIG = load_config()
 
-# =========================================================
-# Discord Bot 初期化（スロット＋VCガード）
-# =========================================================
+# =========================
+# Bot 本体（サブクラス化して setup_hook を正しくオーバーライド）
+# =========================
 intents = discord.Intents.default()
 intents.message_content = True
-intents.voice_states = True   # VCイベントに必須
-intents.members = True        # ロール判定に必須（開発者ポータルでON）
+intents.voice_states = True
+intents.members = True
 intents.guilds = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+class MyBot(commands.Bot):
+    async def setup_hook(self):
+        # ここで「ギルドにグローバルコマンドをコピー → 同期」
+        for gid in GUILD_IDS:
+            guild_obj = discord.Object(id=gid)
+            # 重要：これがないと一部コマンドがギルドに現れないことがある
+            self.tree.copy_global_to(guild=guild_obj)
+            await self.tree.sync(guild=guild_obj)
+            log.info(f"Slash commands synced to Guild {gid}")
+
+bot = MyBot(command_prefix="!", intents=intents)
 tree = bot.tree
 
-# ---- 権限チェック（管理者 or 指定ロール） ----
-def has_access(member: discord.Member) -> bool:
-    if member.guild_permissions.administrator:
-        return True
-    return any(r.id == ALLOWED_ROLE_ID for r in member.roles)
-
-async def ensure_access(interaction: discord.Interaction) -> bool:
-    if not isinstance(interaction.user, discord.Member):
-        await interaction.response.send_message("サーバー内で実行してください。", ephemeral=True)
-        return False
-    if not has_access(interaction.user):
-        await interaction.response.send_message("権限がありません。", ephemeral=True)
-        return False
-    return True
-
-# =========================================================
-# 既存：/slot コマンド（そのまま）
-# =========================================================
+# =========================
+# /slot（既存のまま）
+# =========================
 @bot.tree.command(name="slot", description="スロットゲームを開始します")
 @app_commands.describe(coins="初期コイン数（例：1000）")
 async def slot(interaction: discord.Interaction, coins: int):
@@ -200,14 +179,14 @@ async def slot(interaction: discord.Interaction, coins: int):
         )
 
     try:
-        msg = await bot.wait_for("message", timeout=180, check=check)
+        await bot.wait_for("message", timeout=180, check=check)
 
         session_id = str(uuid.uuid4())
         SESSION_DATA[session_id] = {
             "user_id": interaction.user.id,
             "coins": coins,
             "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
-            "used": False  # 初期状態は未使用
+            "used": False
         }
 
         slot_url = f"https://slot-production-be36.up.railway.app/?session={session_id}"
@@ -219,9 +198,9 @@ async def slot(interaction: discord.Interaction, coins: int):
     except asyncio.TimeoutError:
         await interaction.followup.send("⏳ 時間内に送金が確認できませんでした。再度 `/slot` を実行してください。", ephemeral=True)
 
-# =========================================================
-# 既存：送金処理関数
-# =========================================================
+# =========================
+# 送金処理関数（既存）
+# =========================
 async def send_payout(user_id: int, coins: int):
     await bot.wait_until_ready()
     try:
@@ -230,16 +209,26 @@ async def send_payout(user_id: int, coins: int):
         if not cashout_channel:
             print("❌ 送金チャンネルが見つかりません")
             return
-
         await cashout_channel.send(f"/pay Spt {user.mention} {coins}　清算処理")
         print(f"✅ /pay {user.mention} {coins} spt を送信しました")
-
     except Exception as e:
         print("❌ 送金失敗:", e)
 
-# =========================================================
-# 追加：VCガード ロジック
-# =========================================================
+# =========================
+# VCガード：権限・判定・ロジック
+# =========================
+def has_access(member: discord.Member) -> bool:
+    return member.guild_permissions.administrator or any(r.id == ALLOWED_ROLE_ID for r in member.roles)
+
+async def ensure_access(interaction: discord.Interaction) -> bool:
+    if not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message("サーバー内で実行してください。", ephemeral=True)
+        return False
+    if not has_access(interaction.user):
+        await interaction.response.send_message("権限がありません。", ephemeral=True)
+        return False
+    return True
+
 def is_protected(member: discord.Member) -> bool:
     pr = CONFIG.get("protected_role_id")
     return any(r.id == pr for r in member.roles)
@@ -260,7 +249,6 @@ async def disconnect_member(m: discord.Member, reason: str):
         log.warning(f"Failed to disconnect {m.id}: {e}")
 
 async def enforce_on_join(member: discord.Member, channel: Optional[discord.VoiceChannel | discord.StageChannel]):
-    """機能1：対象ユーザー（B）がAのいるVCへ参加/移動してきた場合に切断"""
     if channel is None:
         return
     flags = get_target_flags(member.id)
@@ -270,12 +258,10 @@ async def enforce_on_join(member: discord.Member, channel: Optional[discord.Voic
         members = list(channel.members)
     except Exception:
         return
-    # そのVCにAがいる？
     if any(is_protected(m) for m in members if m.id != member.id):
         await disconnect_member(member, "VC Guard F1: Protected user present")
 
 async def enforce_on_protected_enter(channel: Optional[discord.VoiceChannel | discord.StageChannel]):
-    """機能2：Aが入ってきたVCにいる対象ユーザー（B）を切断"""
     if channel is None:
         return
     try:
@@ -291,18 +277,15 @@ async def enforce_on_protected_enter(channel: Optional[discord.VoiceChannel | di
 
 @bot.event
 async def on_voice_state_update(member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
-    # 参加/移動時のみチェック
     if after.channel and after.channel != before.channel:
-        # 1) 対象ユーザー（B）が入った/移動 → 機能1
         if is_target_user(member.id):
             await enforce_on_join(member, after.channel)
-        # 2) Aが入った/移動 → 機能2
         if is_protected(member):
             await enforce_on_protected_enter(after.channel)
 
-# =========================================================
-# 追加：スラッシュコマンド（VCガード設定）
-# =========================================================
+# =========================
+# VCガード：スラッシュコマンド
+# =========================
 vc_guard = app_commands.Group(name="vc_guard", description="VCガード設定")
 tree.add_command(vc_guard)
 
@@ -403,7 +386,7 @@ async def target_list(interaction: discord.Interaction, page: Optional[int] = 1)
     if not await ensure_access(interaction):
         return
     page = max(1, page or 1)
-    items = list(CONFIG["targets"].items())  # [(uid, {"f1":..,"f2":..}), ...]
+    items = list(CONFIG["targets"].items())
     total = len(items)
     page_size = 25
     start = (page - 1) * page_size
@@ -421,26 +404,16 @@ async def target_list(interaction: discord.Interaction, page: Optional[int] = 1)
         ephemeral=True
     )
 
-# =========================================================
-# 同期ポイント（ここが肝）— すべてのコマンド定義後！
-# =========================================================
-@bot.event
-async def setup_hook():
-    # 全コマンド登録が終わってからギルド同期するので、初回から確実に出る
-    for gid in GUILD_IDS:
-        try:
-            await tree.sync(guild=discord.Object(id=gid))
-            log.info(f"Slash commands synced to Guild {gid}")
-        except Exception as e:
-            log.warning(f"Failed to sync to Guild {gid}: {e}")
-
+# =========================
+# on_ready（同期は setup_hook に任せる）
+# =========================
 @bot.event
 async def on_ready():
     print(f"✅ Bot connected as {bot.user}")
 
-# =========================================================
+# =========================
 # 起動
-# =========================================================
+# =========================
 if __name__ == "__main__":
     keep_alive()
     bot.run(os.environ["DISCORD_TOKEN"])
